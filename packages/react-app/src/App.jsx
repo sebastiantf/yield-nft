@@ -11,19 +11,11 @@ import "./App.css";
 import { Account, Contract, Faucet, GasGauge, Header, Ramp, ThemeSwitch } from "./components";
 import { DAI_ABI, DAI_ADDRESS, INFURA_ID, NETWORK, NETWORKS } from "./constants";
 import { Transactor } from "./helpers";
-import {
-  useBalance,
-  useContractLoader,
-  useContractReader,
-  useEventListener,
-  useExchangePrice,
-  useExternalContractLoader,
-  useGasPrice,
-  useOnBlock,
-  useUserProvider,
-} from "./hooks";
-// import Hints from "./Hints";
-import { ExampleUI, Hints, Subgraph } from "./views";
+import { formatEther, parseEther } from "@ethersproject/units";
+//import Hints from "./Hints";
+import { useThemeSwitcher } from "react-css-theme-switcher";
+import { Hints, ExampleUI, Subgraph, NFTProjectUI } from "./views"
+import { INFURA_ID, DAI_ADDRESS, DAI_ABI, NETWORK, NETWORKS } from "./constants";
 /*
     Welcome to 🏗 scaffold-eth !
 
@@ -302,6 +294,9 @@ function App(props) {
               YourContract
             </Link>
           </Menu.Item>
+          <Menu.Item key="/nftprojectui">
+            <Link onClick={()=>{setRoute("/nftprojectui")}} to="/nftprojectui">NFTProjectUI</Link>
+          </Menu.Item>
           <Menu.Item key="/hints">
             <Link
               onClick={() => {
@@ -353,14 +348,23 @@ function App(props) {
             */}
 
             <Contract
-              name="YourContract"
+              name="NFTProject"
               signer={userProvider.getSigner()}
               provider={localProvider}
               address={address}
               blockExplorer={blockExplorer}
             />
 
-            {/* uncomment for a second contract:
+            {/* <Contract
+              name="YourContract"
+              signer={userProvider.getSigner()}
+              provider={localProvider}
+              address={address}
+              blockExplorer={blockExplorer}
+            /> */}
+
+
+            { /* uncomment for a second contract:
             <Contract
               name="SecondContract"
               signer={userProvider.getSigner()}
@@ -422,6 +426,19 @@ function App(props) {
               mainnetProvider={mainnetProvider}
             />
           </Route>
+          <Route path="/nftprojectui">
+            <NFTProjectUI
+              address={address}
+              userProvider={userProvider}
+              mainnetProvider={mainnetProvider}
+              localProvider={localProvider}
+              yourLocalBalance={yourLocalBalance}
+              price={price}
+              tx={tx}
+              writeContracts={writeContracts}
+              readContracts={readContracts}
+            />
+          </Route>
         </Switch>
       </BrowserRouter>
 
@@ -444,44 +461,46 @@ function App(props) {
       </div>
 
       {/* 🗺 Extra UI like gas price, eth price, faucet, and support: */}
-      <div style={{ position: "fixed", textAlign: "left", left: 0, bottom: 20, padding: 10 }}>
-        <Row align="middle" gutter={[4, 4]}>
-          <Col span={8}>
-            <Ramp price={price} address={address} networks={NETWORKS} />
-          </Col>
+       {/* <div style={{ position: "fixed", textAlign: "left", left: 0, bottom: 20, padding: 10 }}>
+         <Row align="middle" gutter={[4, 4]}>
+           <Col span={8}>
+             <Ramp price={price} address={address} networks={NETWORKS}/>
+           </Col>
 
-          <Col span={8} style={{ textAlign: "center", opacity: 0.8 }}>
-            <GasGauge gasPrice={gasPrice} />
-          </Col>
-          <Col span={8} style={{ textAlign: "center", opacity: 1 }}>
-            <Button
-              onClick={() => {
-                window.open("https://t.me/joinchat/KByvmRe5wkR-8F_zz6AjpA");
-              }}
-              size="large"
-              shape="round"
-            >
-              <span style={{ marginRight: 8 }} role="img" aria-label="support">
-                💬
-              </span>
-              Support
-            </Button>
-          </Col>
-        </Row>
+           <Col span={8} style={{ textAlign: "center", opacity: 0.8 }}>
+             <GasGauge gasPrice={gasPrice} />
+           </Col>
+           <Col span={8} style={{ textAlign: "center", opacity: 1 }}>
+             <Button
+               onClick={() => {
+                 window.open("https://t.me/joinchat/KByvmRe5wkR-8F_zz6AjpA");
+               }}
+               size="large"
+               shape="round"
+             >
+               <span style={{ marginRight: 8 }} role="img" aria-label="support">
+                 💬
+               </span>
+               Support
+             </Button>
+           </Col>
+         </Row>
 
-        <Row align="middle" gutter={[4, 4]}>
-          <Col span={24}>
-            {
-              /*  if the local provider has a signer, let's show the faucet:  */
-              faucetAvailable ? (
-                <Faucet localProvider={localProvider} price={price} ensProvider={mainnetProvider} />
-              ) : (
-                ""
-              )
-            }
-          </Col>
-        </Row>
-      </div>
+         <Row align="middle" gutter={[4, 4]}>
+           <Col span={24}>
+             {
+
+               /*  if the local provider has a signer, let's show the faucet:  
+               faucetAvailable ? (
+                 <Faucet localProvider={localProvider} price={price} ensProvider={mainnetProvider}/>
+               ) : (
+                 ""
+               )
+             }
+           </Col>
+         </Row>
+       </div> */}
+
     </div>
   );
 }
