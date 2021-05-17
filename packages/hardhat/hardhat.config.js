@@ -43,6 +43,12 @@ module.exports = {
   // (you will need to restart the `yarn run start` dev server after editing the .env)
 
   networks: {
+    hardhat: {
+      forking: {
+        url: "https://mainnet.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad",
+        blockNumber: 12760050
+      }
+    },
     localhost: {
       url: "http://localhost:8545",
       /*
