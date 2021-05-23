@@ -8,7 +8,8 @@
     "eslint-config-airbnb": "^18.2.0",
     "eslint-config-prettier": "^6.11.0",
     "eslint-plugin-babel": "^5.3.1",
-    "eslint-plugin-prettier": "^3.1.4"
+    "eslint-plugin-prettier": "^3.1.4",
+    "mocha": "^9.0.2"
   },
   "dependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.0",
@@ -16,11 +17,12 @@
     "@nomiclabs/hardhat-waffle": "^2.0.0",
     "@openzeppelin/contracts": "^3.2.0",
     "@tenderly/hardhat-tenderly": "^1.0.10",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "chai": "^4.2.0",
     "chalk": "^4.1.0",
     "ethereum-waffle": "^3.1.1",
     "ethers": "^5.0.17",
-    "hardhat": "^2.0.11",
+    "hardhat": "^2.3.0",
     "node-dir": "^0.1.17",
     "node-watch": "^0.7.0",
     "qrcode-terminal": "^0.12.0",
