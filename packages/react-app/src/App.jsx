@@ -11,11 +11,20 @@ import "./App.css";
 import { Account, Contract, Faucet, GasGauge, Header, Ramp, ThemeSwitch } from "./components";
 import { DAI_ABI, DAI_ADDRESS, INFURA_ID, NETWORK, NETWORKS } from "./constants";
 import { Transactor } from "./helpers";
-import { formatEther, parseEther } from "@ethersproject/units";
+import {
+  useBalance,
+  useContractLoader,
+  useContractReader,
+  useEventListener,
+  useExchangePrice,
+  useExternalContractLoader,
+  useGasPrice,
+  useOnBlock,
+  useUserProvider,
+} from "./hooks";
 //import Hints from "./Hints";
 import { useThemeSwitcher } from "react-css-theme-switcher";
 import { Hints, ExampleUI, Subgraph, NFTProjectUI } from "./views"
-import { INFURA_ID, DAI_ADDRESS, DAI_ABI, NETWORK, NETWORKS } from "./constants";
 /*
     Welcome to 🏗 scaffold-eth !
 
