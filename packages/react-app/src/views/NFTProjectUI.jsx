@@ -1,22 +1,22 @@
 /* eslint-disable jsx-a11y/accessible-emoji */
 
 import React, { useState, useEffect } from "react";
-import { Button, List, Divider, Input, Tooltip, Card, DatePicker, Slider, Switch, Progress, Spin, Dropdown, Menu } from "antd";
+import { Button, List, Divider, Input, Tooltip, Card, DatePicker, Slider, Switch, Progress, Spin, Dropdown, Menu, Checkbox } from "antd";
 import { DownOutlined } from '@ant-design/icons';
 import { Address, Signatures } from "../components";
 import { parseEther, formatEther, parseUnits, formatUnits } from "@ethersproject/units";
 import { ethers, utils } from "ethers";
+import { ChainId, Token, WETH, Fetcher } from '@uniswap/sdk'
 
-import { DAI_ADDRESS, DAI_ABI, 
-        USDC_ADDRESS, USDC_ABI, 
-        USDT_ADDRESS, USDT_ABI, 
-        yDAI_ADDRESS, yDAI_ABI, 
-        yUSDC_ADDRESS, yUSDC_ABI,
-        yUSDT_ADDRESS, yUSDT_ABI,
-        yDAIVault_ADDRESS, yDAIVault_ABI,
-        yUSDCVault_ADDRESS, yUSDCVault_ABI,
-        yUSDTVault_ADDRESS, yUSDTVault_ABI,
-        HASHMASKS_ADDRESS, HASHMASKS_ABI } from "../constants"
+import { ERC20_ABI,
+        DAI_ADDRESS, 
+        USDC_ADDRESS, 
+        USDT_ADDRESS, 
+        yDAI_ADDRESS, 
+        yUSDC_ADDRESS,
+        yUSDT_ADDRESS,
+        HASHMASKS_ADDRESS, HASHMASKS_ABI
+      } from "../constants"
 
 import { useLocalStorage } from "../hooks";
 
@@ -53,6 +53,20 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
     _setupBorrowerLender();
   });
 
+  async function refreshStates() {
+    await refreshLatestBlock();
+    await refreshLatestBlockTimestamp();
+    await refreshDAIBalance();
+    await refreshDAIApproval();
+    await refreshHashMaskOwner();
+    await refreshHashMaskApproval();
+    await refreshYTokenBalance();
+  }
+
+  useEffect(() => {
+      if(readContracts) refreshStates();
+  }, [readContracts]);
+
   // Borrow
   const [nftTokenContract_Borrow, setNftTokenContractBorrow] = useState("loading...");
   const [nftTokenId_Borrow, setNftTokenIdBorrow] = useState("loading...");
@@ -62,8 +76,8 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
   
   const signBorrowerMessage = async () => {
     var hash = ethers.utils.solidityKeccak256(
-      ["address", "uint256", "address", "address", "address"],
-      [nftTokenContract_Borrow, nftTokenId_Borrow, borrower, strategy, yVault]
+      ["address", "uint256", "address", "address", "address", "bool"],
+      [nftTokenContract_Borrow, nftTokenId_Borrow, borrower, strategy, yVault, viaNFT20]
       );
       let bytesDataHash = ethers.utils.arrayify(hash)
       const signature = await signer.signMessage(bytesDataHash);
@@ -74,12 +88,13 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
         borrower,
         strategy,
         yVault,
+        viaNFT20,
         signature
       }]);
     }
 
-  const verifyBorrowerSignature = async (nftTokenContract, nftTokenId, borrower, strategy, yVault, signature) => {
-    let result = await readContracts['NFTProject'].isValidBorrowerSignature(nftTokenContract, nftTokenId, borrower, strategy, yVault, signature);
+  const verifyBorrowerSignature = async (nftTokenContract, nftTokenId, borrower, strategy, yVault, viaNFT20, signature) => {
+    let result = await readContracts['NFTProject'].isValidBorrowerSignature(nftTokenContract, nftTokenId, borrower, strategy, yVault, viaNFT20, signature);
     alert(result);
     return result
   }
@@ -90,12 +105,13 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
     const [nftTokenContract_Lend, setNftTokenContractLend] = useState("loading...");
     const [nftTokenId_Lend, setNftTokenIdLend] = useState("loading...");
     const [lendDuration, setLendDuration] = useState("loading...");
+    const [closingTime, setClosingTime] = useState("loading...");
     const [lender, setLender] = useState("loading...");
     
     const signLenderMessage = async () => {
       var hash = ethers.utils.solidityKeccak256(
         ["uint256", "address", "address", "uint256", "uint256", "address"],
-        [lendPrincipalAmount, lendERC20Contract, nftTokenContract_Lend, nftTokenId_Lend, lendDuration, lender]
+        [lendPrincipalAmount, lendERC20Contract, nftTokenContract_Lend, nftTokenId_Lend, closingTime, lender]
         );
         let bytesDataHash = ethers.utils.arrayify(hash)
         const signature = await signer.signMessage(bytesDataHash);
@@ -105,14 +121,14 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
           lendERC20Contract,
           nftTokenContract_Lend,
           nftTokenId_Lend,
-          lendDuration,
+          closingTime,
           lender,
           signature
         }]);
       }
     
-    const verifyLenderSignature = async (lendPrincipalAmount, lendERC20Contract, nftTokenContract, nftTokenId, lendDuration, lender, signature) => {
-      let result = await readContracts['NFTProject'].isValidLenderSignature(lendPrincipalAmount, lendERC20Contract, nftTokenContract, nftTokenId, lendDuration, lender, signature) 
+    const verifyLenderSignature = async (lendPrincipalAmount, lendERC20Contract, nftTokenContract, nftTokenId, closingTime, lender, signature) => {
+      let result = await readContracts['NFTProject'].isValidLenderSignature(lendPrincipalAmount, lendERC20Contract, nftTokenContract, nftTokenId, closingTime, lender, signature) 
       alert(result);
       return result;
     }
@@ -129,7 +145,7 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
     const refreshDAIBalance = async ()=>{
       setDaiBalance('...')
       const signer = await userProvider.getSigner()
-      const myDaiContract = new ethers.Contract(DAI_ADDRESS, DAI_ABI, signer);
+      const myDaiContract = new ethers.Contract(DAI_ADDRESS, ERC20_ABI, signer);
       
       const signerDaiBal = await myDaiContract.balanceOf(await signer.getAddress())
       console.log("BALANCE:",formatEther(signerDaiBal))
@@ -148,7 +164,7 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
     const refreshYTokenBalance = async ()=>{
       setYTokenBalance('...')
       const signer = await userProvider.getSigner()
-      const myYTokenContract = new ethers.Contract(yDAI_ADDRESS, yDAI_ABI, signer);
+      const myYTokenContract = new ethers.Contract(yDAI_ADDRESS, ERC20_ABI, signer);
       
       const signerDaiBal = await myYTokenContract.balanceOf(readContracts['YearnStrat'].address)
       console.log("yToken BALANCE:",formatEther(signerDaiBal))
@@ -158,7 +174,7 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
     const refreshDAIApproval = async ()=>{
       setDAIApproval('...')
       const signer = await userProvider.getSigner()
-      const myDaiContract = new ethers.Contract(DAI_ADDRESS, DAI_ABI, signer);
+      const myDaiContract = new ethers.Contract(DAI_ADDRESS, ERC20_ABI, signer);
       
       const DAIApproval = await myDaiContract.allowance(await signer.getAddress(), readContracts['NFTProject'].address)
       setDAIApproval(formatEther(DAIApproval))
@@ -182,43 +198,44 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
     }
     
     const approveDAI = async () => {
-      const daiContract = new ethers.Contract(DAI_ADDRESS, DAI_ABI, signer);
-      tx(daiContract.approve(readContracts['NFTProject'].address, ethers.constants.MaxUint256));
+      const localProviderSigner = await localProvider.getSigner(accounts.lender)
+      const daiContract = new ethers.Contract(DAI_ADDRESS, ERC20_ABI, localProviderSigner);
+      await tx(daiContract.approve(readContracts['NFTProject'].address, ethers.constants.MaxUint256));
     }
     
     const approveHashMasks = async () => {
-      const localProviderSigner = await localProvider.getSigner(borrower)
+      const localProviderSigner = await localProvider.getSigner(accounts.borrower)
       const hashMasksContract = new ethers.Contract(HASHMASKS_ADDRESS, HASHMASKS_ABI, localProviderSigner);
-      tx(hashMasksContract.approve(readContracts['NFTProject'].address, hashMaskTokenId));
+      await tx(hashMasksContract.approve(readContracts['NFTProject'].address, hashMaskTokenId));
     }
 
     const [amountToSnatch, setAmountToSnatch] = useState(50000)
     
-    const getImpersonatingSignerDai = async () => {
-      let accountToImpersonate = "0xf977814e90da44bfa03b6295a0616a897441acec" // Binance
+    const getImpersonatingSignerDai = async (to) => {
+      let accountToImpersonate = "0x28c6c06298d514db089934071355e5743bf21d60" // Binance
       await localProvider.send("hardhat_impersonateAccount",[accountToImpersonate])
       const signer = await localProvider.getSigner(accountToImpersonate)
-      const myDaiContract = new ethers.Contract(DAI_ADDRESS, DAI_ABI, signer);
+      const myDaiContract = new ethers.Contract(DAI_ADDRESS, ERC20_ABI, signer);
       const myAddress = await signer.getAddress()
       const signerDaiBal = await myDaiContract.balanceOf(myAddress)
       let transferbal = parseFloat(amountToSnatch)
       const userProviderSigner = userProvider.getSigner();
-      const userProviderSignerAddress = await userProviderSigner.getAddress();
-      let txmisc = tx(myDaiContract.transfer(
-        userProviderSignerAddress,
+      const recipientAddress = to ? to : await userProviderSigner.getAddress();
+      let txmisc = await tx(myDaiContract.transfer(
+        recipientAddress,
         parseEther(transferbal.toString())
         ));
       }
       
-    const getImpersonatingSignerHashMasks = async () => {
+    const getImpersonatingSignerHashMasks = async (to) => {
       let accountToImpersonate = hashMaskOwner
       await localProvider.send("hardhat_impersonateAccount",[accountToImpersonate])
       const signer = await localProvider.getSigner(accountToImpersonate)
       const hashMasksContract = new ethers.Contract(HASHMASKS_ADDRESS, HASHMASKS_ABI, signer);
       const signerAddress = await signer.getAddress();
       const userProviderSigner = userProvider.getSigner();
-      const userProviderSignerAddress = await userProviderSigner.getAddress();
-      let txmisc = tx(hashMasksContract.transferFrom(signerAddress, userProviderSignerAddress, hashMaskTokenId));
+      const recipientAddress = to ? to : await userProviderSigner.getAddress();
+      let txmisc = await tx(hashMasksContract.transferFrom(signerAddress, recipientAddress, hashMaskTokenId));
     }
 
     // BorrowMenu
@@ -233,6 +250,8 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
         text: "Null"
       }
     }
+
+    const [viaNFT20, setViaNFT20] = useState(false);
 
     const [nftTokenContract_BorrowMenuText, setNftTokenContractBorrowMenuText] = useState(nftTokenContracts['null'].text);
     const [nftTokenContract_BorrowMenuState, setNftTokenContract_BorrowMenuState] = useState({ visible: false });
@@ -404,24 +423,30 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
       </Menu>
     );
 
-    const beginInvestment = async (nftTokenContract, nftTokenId, borrower, lender, strategy, yToken, lendPrincipalAmount, lendERC20Contract, lendDuration, borrowerSignature, lenderSignature) => {
-      console.log(`beginInvestment(${nftTokenContract}, ${nftTokenId}, ${borrower}, ${lender}, ${strategy}, ${yToken}, ${lendPrincipalAmount}, ${lendERC20Contract}, ${lendDuration}, ${borrowerSignature}, ${lenderSignature})`);
+    const beginInvestment = async (nftTokenContract, nftTokenId, borrower, lender, strategy, yToken, lendPrincipalAmount, lendERC20Contract, closingTime, borrowerSignature, lenderSignature, viaNFT20) => {
+      console.log(`beginInvestment(${nftTokenContract}, ${nftTokenId}, ${borrower}, ${lender}, ${strategy}, ${yToken}, ${lendPrincipalAmount}, ${lendERC20Contract}, ${closingTime}, ${borrowerSignature}, ${lenderSignature}, ${viaNFT20})`);
 
       let result;
 
+      const beginInvestmentStruct = {
+        "investId": ethers.BigNumber.from("0"),
+        nftTokenContract,
+        nftTokenId,
+        borrower,
+        lender,
+        strategy,
+        yToken,
+        lendPrincipalAmount,
+        lendERC20Contract,
+        closingTime,
+        "yTokensReceived": ethers.BigNumber.from("0"),
+        borrowerSignature,
+        lenderSignature,
+        viaNFT20,
+      }
+
       result = await tx(readContracts['NFTProject'].connect(signer)
-          .beginInvestment(
-            nftTokenContract,
-            nftTokenId,
-            borrower,
-            lender,
-            strategy,
-            yToken,
-            lendPrincipalAmount,
-            lendERC20Contract,
-            lendDuration,
-            borrowerSignature,
-            lenderSignature));
+          .beginInvestment(beginInvestmentStruct));
 
       /* if (strategy === readContracts['ZapperStrat'].address) {
         
@@ -489,6 +514,20 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
       console.log(result);
       return result;
     }
+
+    // const getUniswapPairData = async () => {
+    //   const ERC20 = new Token(ChainId.MAINNET, lendERC20Contract, 18)
+    //   const NFT20FactoryABI = [
+    //     'function nftToToken(address _originalNft) external view returns (address)'
+    //   ];
+    //   const NFT20Factory = new ethers.Contract('0x0f4676178b5c53Ae0a655f1B19A96387E4b8B5f2', NFT20FactoryABI, signer);
+    //   const NFT20PairTokenAddress = await NFT20Factory.nftToToken(nftTokenContract_Borrow);
+    //   const NFT20PairToken = new Token(ChainId.MAINNET, NFT20PairTokenAddress, 18)
+
+    //   const pair = await Fetcher.fetchPairData(ERC20, NFT20PairToken, localProvider)
+
+    //   console.log("uniswapPairData: ", pair)
+    // }
     
     const [endInvestId, setEndInvestId] = useState(0);
     const [apy, setApy] = useState(0)
@@ -531,8 +570,8 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
 
     const timeTravel = async () => {
       console.log(typeof timeTravelSeconds);
-      await localProvider.send("evm_increaseTime", [parseInt(timeTravelSeconds)])
-      alert('evm_increaseTime() DONE')
+      await localProvider.send("evm_setNextBlockTimestamp", [parseInt(timeTravelSeconds)])
+      alert('evm_setNextBlockTimestamp() DONE')
       await localProvider.send("evm_mine")
       alert('evm_mine() DONE')
     }
@@ -583,7 +622,7 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
       let accountToImpersonate = "0xf977814e90da44bfa03b6295a0616a897441acec" // Binance
       await localProvider.send("hardhat_impersonateAccount",[accountToImpersonate])
       const signer = await localProvider.getSigner(accountToImpersonate)
-      const myUSDTContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+      const myUSDTContract = new ethers.Contract(USDT_ADDRESS, ERC20_ABI, signer);
       const myAddress = await signer.getAddress()
       const signerUSDTBal = await myUSDTContract.balanceOf(myAddress)
       let transferbal = parseFloat(amountUSDTToSnatch)
@@ -600,7 +639,7 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
     const refreshUSDTBalance = async ()=>{
       setUsdtBalance('...')
       const signer = await userProvider.getSigner()
-      const myUSDTContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+      const myUSDTContract = new ethers.Contract(USDT_ADDRESS, ERC20_ABI, signer);
       
       const signerUSDTBal = await myUSDTContract.balanceOf(await signer.getAddress())
       console.log("BALANCE:",formatEther(signerUSDTBal))
@@ -611,7 +650,7 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
     }
 
     const approveUSDT = async () => {
-      const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+      const usdtContract = new ethers.Contract(USDT_ADDRESS, ERC20_ABI, signer);
       const HomoraBankProxyAddress = '0x5f5Cd91070960D13ee549C9CC47e7a4Cd00457bb';
       tx(usdtContract.approve(HomoraBankProxyAddress, ethers.constants.MaxUint256));
     }
@@ -621,7 +660,7 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
     const refreshUSDTApproval = async ()=>{
       setUSDTApproval('...')
       const signer = await userProvider.getSigner()
-      const myUSDTContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+      const myUSDTContract = new ethers.Contract(USDT_ADDRESS, ERC20_ABI, signer);
       const HomoraBankProxyAddress = '0x5f5Cd91070960D13ee549C9CC47e7a4Cd00457bb';
       const USDTApproval = await myUSDTContract.allowance(await signer.getAddress(), HomoraBankProxyAddress)
       setUSDTApproval(formatUnits(USDTApproval, 'mwei'))
@@ -656,6 +695,28 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
                         '0xbe0ca4650000000000000000000000006c3f90f043a72fa612cbac8115ee7e52bde6e49000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000174876e800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000305fb2ce0a09749b2c5d0000000000000000000000000000000000000000000000000000002d66894af800000000000000000000000000000000000000000000000000000018d4fc339f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000825a13fc9a14b84f233300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
                       ));
     }
+
+    const resetNFT20Fee = async () => {
+      const NFT20FactoryAdmin = '0x4b5922abf25858d012d12bb1184e5d3d0b6d6be4' // NFT20 Factory owner
+      let accountToImpersonate = NFT20FactoryAdmin
+      await localProvider.send("hardhat_impersonateAccount",[accountToImpersonate])
+      const signer = await localProvider.getSigner(accountToImpersonate)
+
+      const NFT20FactoryAddress = "0x0f4676178b5c53Ae0a655f1B19A96387E4b8B5f2"; // unitroller proxy
+      const NFT20FactoryABI = [
+        "function setFactorySettings(uint256 _fee, bool _allowFlashLoans) external"
+      ]
+      const NFT20FactoryContract = new ethers.Contract(NFT20FactoryAddress, NFT20FactoryABI, signer);
+
+      tx(NFT20FactoryContract.connect(signer).setFactorySettings(0, true));
+    }
+
+    const initialSetup = async () => {
+      await getImpersonatingSignerHashMasks(accounts.borrower);
+      await getImpersonatingSignerDai(accounts.lender);
+      await approveHashMasks();
+      await approveDAI();
+    }
     
 
   return (
@@ -666,7 +727,7 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
 
       <div style={{border:"1px solid #cccccc", padding:16, width:"70%", margin:"auto",marginTop:64, marginBottom:24}}>
 
-        <div>
+        {/* <div>
           <h2>Re-enable Alpha Homora V2:</h2>
           <h3>AHv2 Credit Limit: {ahv2CreditLimit}</h3><br />
           <Button onClick={() => {refreshAhv2CreditLimit()}}>Refresh AHv2 Credit Limit</Button>
@@ -679,7 +740,7 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
           <Button onClick={() => {approveUSDT()}}>Approve USDT for HomoraBank</Button>
           <Button onClick={() => {refreshUSDTApproval()}}>Refresh USDT Approval</Button><br />
           <Button onClick={() => {executeHomoraBank()}}>Execute HomoraBank</Button>
-        </div>
+        </div> */}
 
       <Divider />
 
@@ -697,6 +758,16 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
 
       <Divider />
 
+        <Button onClick={()=>{initialSetup()}}>Initial Setup</Button>
+        <Button onClick={()=>{resetNFT20Fee()}}>Reset NFT20 Fee</Button>
+        
+        <br />
+        <br />
+
+        <Button onClick={()=>{refreshStates()}}>Refresh</Button>
+        
+        <br />
+        <br />
 
         <h3>{daiBalance} DAI</h3>
         {
@@ -714,8 +785,8 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
         <br/>
         <br/>
 
-        <Button onClick={()=>{getImpersonatingSignerDai()}}>Snatch DAI</Button>
-        <Button onClick={()=>{getImpersonatingSignerHashMasks()}}>Snatch HashMasks</Button>
+        <Button onClick={()=>{getImpersonatingSignerDai(null)}}>Snatch DAI</Button>
+        <Button onClick={()=>{getImpersonatingSignerHashMasks(null)}}>Snatch HashMasks</Button>
 
         <br/>
         
@@ -728,8 +799,8 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
         
         <h3>DAI Approval for NFTProject Contract: {DAIApproval}</h3>
         <h3>HashMask Approvals for {hashMaskTokenId}: {hashMaskApproval}</h3>
-        <Button onClick={() => {approveDAI()}}>Approve DAI</Button>
-        <Button onClick={() => {approveHashMasks()}}>Approve HashMasks</Button>
+        <Button onClick={() => {approveDAI(null)}}>Approve DAI</Button>
+        <Button onClick={() => {approveHashMasks(null)}}>Approve HashMasks</Button>
 
         <br/>
 
@@ -821,6 +892,12 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
           <br/>
           <br/>
 
+          <span style={{margin: 5}}>viaNFT20:</span>
+          <Checkbox onChange={(e)=>{setViaNFT20(e.target.checked)}}></Checkbox>
+
+          <br/>
+          <br/>
+
           {/* <Input placeholder='strategy' value={strategy} onChange={(e)=>{setStrategy(e.target.value)}} /> */}
           <Button onClick={() => signBorrowerMessage()}>Sign Message</Button>
         </div>
@@ -892,13 +969,16 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
               type="dashed"
               style={{ cursor: "pointer" }}
               onClick={async () => {
-                setLendDuration(lendDuration * 24 * 60 * 60)
+                setLendDuration(lendDuration * 24 * 60 * 60);
+                setClosingTime(Math.floor(Date.now() / 1000) + lendDuration * 24 * 60 * 60);
               }}
             >
               🕒
               </div>
           </Tooltip>
           )}/>
+          <br/>
+          <span style={{margin: 5}}>closingTime: {parseInt(latestBlockTimestamp) + parseInt(lendDuration)}</span>
 
           <br/>
 
@@ -914,6 +994,9 @@ export default function NFTProjectUI({purpose, setPurposeEvents, address, mainne
         </div>
 
         <Divider />
+
+        {/* <Button onClick={() => getUniswapPairData()}>getUniswapPairData</Button> */}
+
 
         <span style={{margin: 5}}>investId:</span>
         <Input style={{width: '20%', margin: 5}} placeholder='investId' onChange={(e)=>{setEndInvestId(e.target.value)}} /><br />
