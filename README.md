@@ -1,9 +1,9 @@
-# NFTProject
+# YieldNFT
 ### Passive income from NFTs as collateral
 > https://devfolio.co/submissions/nftproject-d942
 ## Introduction
 
-*NFTProject* is a peer-to-peer marketplace that allows generating yield from idle NFTs. Holders can put up their NFTs as collateral and lenders with access to liquidity can offer capital against these collateral NFTs. The capital thus raised will be used in promising (automated) yield generation strategies across DeFi. The yield thus generated will be distributed between the participants.
+*YieldNFT* is a peer-to-peer marketplace that allows generating yield from idle NFTs. Holders can put up their NFTs as collateral and lenders with access to liquidity can offer capital against these collateral NFTs. The capital thus raised will be used in promising (automated) yield generation strategies across DeFi. The yield thus generated will be distributed between the participants.
 
 ## Why
 
@@ -11,7 +11,7 @@ There are several NFTs already available in the market with their value constant
 
 There aren't many platforms around that make use of such idle NFTs.
 
-*NFTProject* can help collectors to use their idle NFTs to generate passive income for them, without them having to give up their ownership. 
+*YieldNFT* can help collectors to use their idle NFTs to generate passive income for them, without them having to give up their ownership. 
 
 For lenders who are looking for high yield investment opportunities in DeFi, they can invest in such strategies with less effort (automated), while hedging the risk of being liquidated which they would've had to bear, had they invested in them directly.
 
